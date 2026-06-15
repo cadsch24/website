@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from backend.api import leads, conversations, bookings, content, dashboard
+from api import leads, conversations, bookings, content, dashboard
 
 app = FastAPI(
     title="LeadHive API",
