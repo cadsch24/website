@@ -1,4 +1,4 @@
-from sqlalchemy import String, JSON, DateTime, func
+from sqlalchemy import String, JSON, DateTime, func, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import uuid
 from datetime import datetime
@@ -8,7 +8,7 @@ from database import Base
 class Business(Base):
     __tablename__ = "businesses"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(255))
     phone: Mapped[Optional[str]] = mapped_column(String(50))
     business_hours: Mapped[Optional[str]] = mapped_column(String(255))
