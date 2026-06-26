@@ -6,6 +6,8 @@ alembic
 pydantic-settings
 python-dotenv
 httpx
+twilio
+python-multipart
 pytest
 pytest-asyncio
 twilio

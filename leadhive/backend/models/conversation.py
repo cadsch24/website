@@ -1,4 +1,4 @@
-from sqlalchemy import String, DateTime, ForeignKey, func, Text
+from sqlalchemy import String, DateTime, ForeignKey, func, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import uuid
 from datetime import datetime
@@ -8,9 +8,9 @@ from database import Base
 class Conversation(Base):
     __tablename__ = "conversations"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    lead_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("leads.id"))
-    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id"))
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    lead_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("leads.id"))
+    business_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("businesses.id"))
     
     channel: Mapped[str] = mapped_column(String(50)) # sms, call, chat
     direction: Mapped[str] = mapped_column(String(50)) # inbound, outbound

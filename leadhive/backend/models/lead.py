@@ -1,4 +1,4 @@
-from sqlalchemy import String, JSON, DateTime, ForeignKey, func, Text
+from sqlalchemy import String, JSON, DateTime, ForeignKey, func, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import uuid
 from datetime import datetime
@@ -8,8 +8,8 @@ from database import Base
 class Lead(Base):
     __tablename__ = "leads"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id"))
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    business_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("businesses.id"))
     
     name: Mapped[Optional[str]] = mapped_column(String(255))
     phone: Mapped[str] = mapped_column(String(50))

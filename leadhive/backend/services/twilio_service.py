@@ -1,47 +1,32 @@
-import os
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
+from config import settings
+import logging
 
+logger = logging.getLogger(__name__)
 
 class TwilioService:
-    """Wrapper around the Twilio REST API for SMS and voice operations."""
-
     def __init__(self):
-        self.account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-        self.auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-        self.phone_number = os.getenv("TWILIO_PHONE_NUMBER")
-        self.client = Client(self.account_sid, self.auth_token) if self.account_sid and self.auth_token else None
+        self.client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+        self.from_number = settings.TWILIO_PHONE_NUMBER
 
-    def is_configured(self) -> bool:
-        return all([self.account_sid, self.auth_token, self.phone_number, self.client])
-
-    def send_sms(self, to: str, body: str) -> dict:
-        """Send an outbound SMS message."""
-        if not self.is_configured():
-            raise RuntimeError("Twilio is not configured")
+    async def send_sms(self, to_number: str, body: str):
+        """
+        Sends an SMS message using Twilio.
+        Note: The standard Twilio Python library is synchronous. 
+        For a production app with high volume, we'd use the async client or httpx.
+        """
         try:
+            # Twilio's standard client is blocking. 
+            # In a real async app, we'd use the AsyncClient if available or run in thread.
             message = self.client.messages.create(
-                to=to,
-                from_=self.phone_number,
                 body=body,
+                from_=self.from_number,
+                to=to_number
             )
-            return {"sid": message.sid, "status": message.status, "to": to, "body": body}
+            return message.sid
         except TwilioRestException as e:
-            raise RuntimeError(f"Twilio error: {e}")
+            logger.error(f"Error sending SMS via Twilio: {e}")
+            raise e
 
-    def get_call_context(self, call_sid: str) -> dict:
-        """Fetch call details for a given CallSid."""
-        if not self.is_configured():
-            raise RuntimeError("Twilio is not configured")
-        try:
-            call = self.client.calls(call_sid).fetch()
-            return {
-                "sid": call.sid,
-                "from": call.from_,
-                "to": call.to,
-                "status": call.status,
-                "direction": call.direction,
-                "duration": call.duration,
-            }
-        except TwilioRestException as e:
-            raise RuntimeError(f"Twilio error: {e}")
+twilio_service = TwilioService()
