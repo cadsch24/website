@@ -28,7 +28,7 @@ async def test_twilio_webhook_creates_lead_and_conversation(db_session: AsyncSes
     }
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        response = await ac.post("/api/v1/twilio/incoming", data=payload)
+        response = await ac.post("/api/v1/conversations/webhooks/twilio", data=payload)
 
     assert response.status_code == 200
     assert "<?xml" in response.text
@@ -115,7 +115,7 @@ async def test_twilio_voice_webhook_missed_call(db_session: AsyncSession, monkey
         # We call the action endpoint directly to simulate a completed Dial with no-answer
         # Using %2B instead of + for from_number
         response = await ac.post(
-            f"/api/v1/twilio/voice-status?from_number=%2B1666&business_id={business.id}", 
+            f"/api/v1/conversations/webhooks/twilio/voice/action?from_number=%2B1666&business_id={business.id}", 
             data=payload
         )
 

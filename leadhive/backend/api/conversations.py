@@ -1,18 +1,21 @@
-from fastapi import APIRouter, Request, Depends, HTTPException, Response
+from fastapi import APIRouter, Request, Depends, HTTPException, Response, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_async_session
-from models import Business, Lead, Conversation
+from models.business import Business
+from models.lead import Lead
+from models.conversation import Conversation
 from sqlalchemy import select
 import uuid
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.twiml.voice_response import VoiceResponse, Dial
 from services.twilio_service import twilio_service
+from services.lead_qualifier import lead_qualifier
 import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-async def trigger_missed_call_followup(from_number: str, business: Business, db: AsyncSession):
+async def trigger_missed_call_followup(from_number: str, business: Business, db: AsyncSession, background_tasks: BackgroundTasks):
     """
     Helper to trigger an instant SMS follow-up for a missed call.
     """
@@ -59,6 +62,9 @@ async def trigger_missed_call_followup(from_number: str, business: Business, db:
         await db.commit()
         logger.info(f"Sent missed call follow-up to {from_number}")
 
+        # 6. Trigger AI Lead Qualification in background
+        background_tasks.add_task(lead_qualifier.qualify_lead, lead.id)
+
     except Exception as e:
         logger.error(f"Error in trigger_missed_call_followup: {e}")
         # Rollback if error occurred during commit
@@ -68,6 +74,7 @@ async def trigger_missed_call_followup(from_number: str, business: Business, db:
 @router.post("/webhooks/twilio")
 async def twilio_webhook(
     request: Request, 
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_async_session)
 ):
     """
@@ -125,8 +132,8 @@ async def twilio_webhook(
         db.add(conversation)
         await db.commit()
 
-        # 4. (Future) Trigger AI Nurture Logic
-        # For now, we just acknowledge receipt
+        # 4. Trigger AI Lead Qualification in background
+        background_tasks.add_task(lead_qualifier.qualify_lead, lead.id)
         
         twiml = MessagingResponse()
         # Optional: twiml.message("Thanks for reaching out! One of our team members (or AI) will get back to you shortly.")
@@ -141,6 +148,7 @@ async def twilio_webhook(
 @router.post("/webhooks/twilio/voice")
 async def twilio_voice_webhook(
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_async_session)
 ):
     """
@@ -175,7 +183,7 @@ async def twilio_voice_webhook(
         else:
             # Missed call by default if no forwarding
             response.say("Sorry, no one is available. We will text you shortly.")
-            await trigger_missed_call_followup(from_number, business, db)
+            await trigger_missed_call_followup(from_number, business, db, background_tasks)
             
         return Response(content=str(response), media_type="application/xml")
     except Exception as e:
@@ -187,6 +195,7 @@ async def twilio_voice_action(
     request: Request,
     from_number: str,
     business_id: str,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_async_session)
 ):
     """
@@ -203,7 +212,7 @@ async def twilio_voice_action(
             result = await db.execute(select(Business).where(Business.id == u_id))
             business = result.scalar_one_or_none()
             if business:
-                await trigger_missed_call_followup(from_number, business, db)
+                await trigger_missed_call_followup(from_number, business, db, background_tasks)
         
         return Response(content=str(VoiceResponse()), media_type="application/xml")
     except Exception as e:
@@ -214,6 +223,7 @@ async def twilio_voice_action(
 async def send_message(
     lead_id: str,
     body: str,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_async_session)
 ):
     """
@@ -244,6 +254,9 @@ async def send_message(
         )
         db.add(conversation)
         await db.commit()
+        
+        # 4. Trigger AI Lead Qualification in background
+        background_tasks.add_task(lead_qualifier.qualify_lead, lead.id)
         
         return {"status": "sent", "sid": sid}
     except Exception as e:

@@ -10,4 +10,4 @@ twilio
 python-multipart
 pytest
 pytest-asyncio
-twilio
+openai
