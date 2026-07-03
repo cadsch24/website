@@ -23,4 +23,5 @@ class Business(Base):
     conversations: Mapped[List["Conversation"]] = relationship(back_populates="business")
     bookings: Mapped[List["Booking"]] = relationship(back_populates="business")
     followup_sequences: Mapped[List["FollowupSequence"]] = relationship(back_populates="business")
+    scheduled_messages: Mapped[List["ScheduledMessage"]] = relationship(back_populates="business")
     content_ideas: Mapped[List["ContentIdea"]] = relationship(back_populates="business")

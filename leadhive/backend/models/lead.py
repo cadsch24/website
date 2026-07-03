@@ -28,3 +28,4 @@ class Lead(Base):
     business: Mapped["Business"] = relationship(back_populates="leads")
     conversations: Mapped[List["Conversation"]] = relationship(back_populates="lead")
     bookings: Mapped[List["Booking"]] = relationship(back_populates="lead")
+    scheduled_messages: Mapped[List["ScheduledMessage"]] = relationship(back_populates="lead")
