@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from api import leads, conversations, bookings, content, dashboard, twilio_webhooks
+from api import leads, conversations, bookings, content, dashboard, twilio_webhooks, followup
 
 app = FastAPI(
     title="LeadHive API",
@@ -17,3 +17,4 @@ app.include_router(twilio_webhooks.router, prefix="/api/v1/twilio", tags=["twili
 app.include_router(bookings.router, prefix="/api/v1/bookings", tags=["bookings"])
 app.include_router(content.router, prefix="/api/v1/content", tags=["content"])
 app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["dashboard"])
+app.include_router(followup.router, prefix="/api/v1/followup", tags=["followup"])

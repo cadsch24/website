@@ -306,17 +306,22 @@ class FollowUpEngine:
 
     # ── Scheduler ─────────────────────────────────────────────────────
 
-    async def check_and_send_due_messages(self):
+    async def check_and_send_due_messages(self, session_maker=None):
         """
         Main scheduler function. Checks for scheduled messages that are due
         and sends them via Twilio.
 
         This should be called periodically (e.g., every 2-5 minutes via
         BackgroundTasks, apscheduler, or a cron-like loop).
+
+        Args:
+            session_maker: Optional async session maker. Uses the default
+                           from database.py if not provided (for production).
         """
         sent_count = 0
         try:
-            async with async_session_maker() as db:
+            maker = session_maker or async_session_maker
+            async with maker() as db:
                 now = datetime.now(timezone.utc)
 
                 # Find all scheduled messages that are due
@@ -414,10 +419,11 @@ class FollowUpEngine:
 
     # ── Bulk Scheduler (for missed content) ──────────────────────────
 
-    async def generate_missing_content(self):
+    async def generate_missing_content(self, session_maker=None):
         """Generate AI content for any scheduled messages missing it."""
         try:
-            async with async_session_maker() as db:
+            maker = session_maker or async_session_maker
+            async with maker() as db:
                 result = await db.execute(
                     select(ScheduledMessage).where(
                         and_(
