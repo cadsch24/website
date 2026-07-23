@@ -6,6 +6,9 @@ from database import Base, get_async_session
 from main import app
 import os
 
+# Import all models to ensure they're registered on Base.metadata
+import models  # noqa: F401
+
 # Use a separate test database
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 
@@ -26,6 +29,11 @@ async def db_session():
     async with async_session_maker_test() as session:
         yield session
         await session.rollback()
+
+@pytest_asyncio.fixture
+async def test_session_maker():
+    """Expose the test session maker so services can use it in tests."""
+    return async_session_maker_test
 
 # Override the dependency
 async def override_get_async_session():
