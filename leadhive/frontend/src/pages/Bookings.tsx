@@ -1,62 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Calendar,
   Clock,
   User,
   Phone,
   Sparkles,
-  CheckCircle,
-  Plus,
-  ChevronLeft,
-  ChevronRight,
   Sliders,
   MapPin,
-  BellRing
+  BellRing,
+  RefreshCw,
 } from 'lucide-react';
+import { bookingService, Booking } from '../services/bookingService';
 
 export default function Bookings() {
-  const [activeTab, setActiveTab] = useState('upcoming');
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'completed'>('upcoming');
   const [showSlotModal, setShowSlotModal] = useState(false);
   const [selectedSlotLead, setSelectedSlotLead] = useState('');
 
-  const [bookings, setBookings] = useState([
-    {
-      id: 'B-201',
-      leadName: 'David K.',
-      phone: '(512) 555-0198',
-      serviceType: 'Roofing Leak Repair',
-      scheduledAt: 'June 16, 2026',
-      timeSlot: '10:00 AM - 12:00 PM',
-      location: 'East Austin, TX',
-      status: 'Confirmed',
-      remindersSent: true,
-      notes: 'Customer reported dripping in the kitchen. Needs emergency inspection.'
-    },
-    {
-      id: 'B-202',
-      leadName: 'Sarah J.',
-      phone: '(512) 555-0144',
-      serviceType: 'AC Diagnostics',
-      scheduledAt: 'June 16, 2026',
-      timeSlot: '01:30 PM - 03:00 PM',
-      location: 'West Lake Hills, TX',
-      status: 'Pending',
-      remindersSent: false,
-      notes: 'Vents blowing hot air. Home temperature is already 82°. Infant present.'
-    },
-    {
-      id: 'B-203',
-      leadName: 'Robert P.',
-      phone: '(512) 555-0177',
-      serviceType: 'Plumbing Service',
-      scheduledAt: 'June 15, 2026',
-      timeSlot: '04:00 PM - 05:30 PM',
-      location: 'Pflugerville, TX',
-      status: 'Completed',
-      remindersSent: true,
-      notes: 'Cleared backup in master bathroom shower drain.'
+  const fetchBookings = async () => {
+    setLoading(true);
+    try {
+      const data = await bookingService.getBookings();
+      setBookings(data);
+    } catch (err) {
+      console.error('Failed to load bookings:', err);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    fetchBookings();
+  }, []);
 
   const activeBookings = bookings.filter((b) => {
     if (activeTab === 'upcoming') return b.status === 'Confirmed' || b.status === 'Pending';
@@ -64,10 +41,36 @@ export default function Bookings() {
     return true;
   });
 
-  const handleProposeSlots = (e) => {
+  const handleProposeSlots = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert(`AI slot proposal sequence sent to ${selectedSlotLead || 'client'} via SMS!`);
-    setShowSlotModal(false);
+    if (!selectedSlotLead.trim()) return;
+
+    try {
+      await bookingService.proposeSlots(selectedSlotLead, '', ['Tomorrow 9 AM', 'Tomorrow 1:30 PM', 'Wed 10:30 AM']);
+      setShowSlotModal(false);
+      setSelectedSlotLead('');
+    } catch (err) {
+      console.error('Failed to propose slots:', err);
+    }
+  };
+
+  const handleToggleReminders = async (bookingId: string) => {
+    try {
+      const updated = await bookingService.toggleReminders(bookingId);
+      setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, remindersSent: updated.remindersSent } : b));
+    } catch (err) {
+      console.error('Failed to toggle reminders:', err);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'Confirmed': return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+      case 'Pending': return 'bg-amber-50 text-amber-700 border-amber-100';
+      case 'Completed': return 'bg-slate-50 text-slate-700 border-slate-200';
+      case 'Cancelled': return 'bg-rose-50 text-rose-600 border-rose-100';
+      default: return 'bg-slate-50 text-slate-700';
+    }
   };
 
   return (
@@ -78,16 +81,25 @@ export default function Bookings() {
           <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Calendar Bookings</h2>
           <p className="text-sm text-slate-500 mt-1">Manage booked appointments and trigger automated SMS calendar proposals.</p>
         </div>
-        <button
-          onClick={() => setShowSlotModal(true)}
-          className="inline-flex items-center space-x-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-brand-900/10 transition-colors"
-        >
-          <Sparkles className="h-4 w-4" />
-          <span>Propose Time Slots via SMS</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={fetchBookings}
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => setShowSlotModal(true)}
+            className="inline-flex items-center space-x-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-brand-900/10 transition-colors"
+          >
+            <Sparkles className="h-4 w-4" />
+            <span>Propose Time Slots via SMS</span>
+          </button>
+        </div>
       </div>
 
-      {/* Main Grid: Calendar list + Business Hours Setup */}
+      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Appointments List */}
         <div className="lg:col-span-8 space-y-4">
@@ -95,41 +107,38 @@ export default function Bookings() {
           <div className="flex border-b border-slate-200 text-xs font-bold uppercase tracking-wider">
             <button
               onClick={() => setActiveTab('upcoming')}
-              className={`pb-3 pr-6 ${
-                activeTab === 'upcoming'
-                  ? 'border-b-2 border-brand-600 text-brand-600'
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
+              className={`pb-3 pr-6 ${activeTab === 'upcoming'
+                ? 'border-b-2 border-brand-600 text-brand-600'
+                : 'text-slate-400 hover:text-slate-600'}`}
             >
               Upcoming ({bookings.filter(b => b.status !== 'Completed').length})
             </button>
             <button
               onClick={() => setActiveTab('completed')}
-              className={`pb-3 px-6 ${
-                activeTab === 'completed'
-                  ? 'border-b-2 border-brand-600 text-brand-600'
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
+              className={`pb-3 px-6 ${activeTab === 'completed'
+                ? 'border-b-2 border-brand-600 text-brand-600'
+                : 'text-slate-400 hover:text-slate-600'}`}
             >
               Completed ({bookings.filter(b => b.status === 'Completed').length})
             </button>
           </div>
 
-          {/* Cards Stack */}
-          <div className="space-y-4">
-            {activeBookings.length > 0 ? (
-              activeBookings.map((appt) => (
+          {/* Cards */}
+          {loading && bookings.length === 0 ? (
+            <div className="bg-white border border-slate-200 rounded-2xl py-12 text-center text-slate-400 font-medium">
+              <RefreshCw className="h-6 w-6 animate-spin mx-auto text-brand-500 mb-2" />
+              Loading appointments...
+            </div>
+          ) : activeBookings.length > 0 ? (
+            <div className="space-y-4">
+              {activeBookings.map((appt) => (
                 <div
                   key={appt.id}
                   className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between gap-6 hover:border-slate-300 transition-all"
                 >
                   <div className="space-y-3 flex-1">
                     <div className="flex items-center space-x-2">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        appt.status === 'Confirmed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                        appt.status === 'Pending' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                        'bg-slate-50 text-slate-700 border-slate-200'
-                      }`}>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusBadge(appt.status)}`}>
                         {appt.status}
                       </span>
                       <span className="text-[10px] text-slate-400 font-mono">Appt ID: {appt.id}</span>
@@ -168,28 +177,31 @@ export default function Bookings() {
                       <span>{appt.location}</span>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => handleToggleReminders(appt.id)}
+                      className="cursor-pointer"
+                    >
                       {appt.remindersSent ? (
-                        <div className="flex items-center text-emerald-600 text-xs font-semibold bg-emerald-50 px-2.5 py-1 rounded-lg">
+                        <div className="flex items-center text-emerald-600 text-xs font-semibold bg-emerald-50 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors">
                           <BellRing className="h-3.5 w-3.5 mr-1" />
                           <span>SMS Reminders Active</span>
                         </div>
                       ) : (
-                        <div className="flex items-center text-slate-400 text-xs font-semibold bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
+                        <div className="flex items-center text-slate-400 text-xs font-semibold bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
                           <BellRing className="h-3.5 w-3.5 mr-1 text-slate-300" />
                           <span>Reminders Inactive</span>
                         </div>
                       )}
-                    </div>
+                    </button>
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className="bg-white border border-slate-200 rounded-2xl py-12 text-center text-slate-400 font-medium">
-                No appointments listed for this status.
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white border border-slate-200 rounded-2xl py-12 text-center text-slate-400 font-medium">
+              No appointments listed for this status.
+            </div>
+          )}
         </div>
 
         {/* Business Settings Panel */}
@@ -272,18 +284,12 @@ export default function Bookings() {
               <div className="space-y-1.5">
                 <label className="text-slate-400 font-semibold uppercase tracking-wider block">Slots to Propose</label>
                 <div className="space-y-2 text-slate-600 font-bold">
-                  <div className="flex items-center">
-                    <input type="checkbox" defaultChecked className="mr-2 h-4 w-4 accent-brand-600" />
-                    <span>Tomorrow, June 16 — 09:00 AM</span>
-                  </div>
-                  <div className="flex items-center">
-                    <input type="checkbox" defaultChecked className="mr-2 h-4 w-4 accent-brand-600" />
-                    <span>Tomorrow, June 16 — 01:30 PM</span>
-                  </div>
-                  <div className="flex items-center">
-                    <input type="checkbox" defaultChecked className="mr-2 h-4 w-4 accent-brand-600" />
-                    <span>Wednesday, June 17 — 10:30 AM</span>
-                  </div>
+                  {['Tomorrow, June 16 — 09:00 AM', 'Tomorrow, June 16 — 01:30 PM', 'Wednesday, June 17 — 10:30 AM'].map((slot, i) => (
+                    <div key={i} className="flex items-center">
+                      <input type="checkbox" defaultChecked className="mr-2 h-4 w-4 accent-brand-600" />
+                      <span>{slot}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
